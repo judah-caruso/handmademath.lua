@@ -21,15 +21,21 @@ assert(pcall(require, 'ffi') and pcall(require, 'jit'), 'Error: HandmadeMath req
 
 local ffi = require 'ffi'
 
-local lib_path = nil
+local lib_path    = nil
+local search_path = package.path .. ';lib/?.lua'
+
 if ffi.os == 'Windows' then
-    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'dll'))
+    lib_path = package.searchpath('HandmadeMath', search_path:gsub('lua', 'dll'))
 elseif ffi.os == 'OSX' then
-    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'dylib'))
+    lib_path = package.searchpath('HandmadeMath', search_path:gsub('lua', 'dylib'))
 elseif ffi.os == 'Linux' then
-    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'so'))
+    lib_path = package.searchpath('HandmadeMath', search_path:gsub('lua', 'so'))
 else
-    error(('unsupported operating system: %s'):format(ffi.os))
+    error(("Error: unsupported operating system '%s'"):format(ffi.os))
+end
+
+if lib_path == nil then
+    error('Error: unable to find library for HandmadeMath! Does it exist?')
 end
 
 local lib = ffi.load(lib_path or 'HandmadeMath', false)
