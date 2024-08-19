@@ -1,20 +1,59 @@
 --[[
-    INFORMATION
-    -----------
+   INFORMATION & NOTES
+   -------------------
 
-    A Lua-like wrapper for HandmadeMath.
+   This module is a thin wrapper over 'hmm.lua' that can prevent
+   common mistakes when working with cdata. It also allows for
+   easy extension/monkey-patching and may feel better to use in
+   the majority of cases.
+
+   However, if this module becomes a performance bottleneck,
+   sticking with 'hmm.lua' may improve performance in some places.
+
+   Some decisions were made during the creation of this library
+   that are useful to keep in mind:
+
+      - Constants were converted to lowercase, and functions to
+      camelCase.
+
+      - Constructors for types match their conterpart (but lowercase)
+      and implicitly set nil arguments to 0. For example, 'v2()' will
+      create a 2-component vector with 0x, 0y.
+
+      - Lowercase field names can be used instead of their PascalCase
+      equivalent.
+
+      - Types wrap their cdata in a table and define (meta)methods.
+      These methods simply call the HMM equivalent and return a new
+      table[1]. Modifying a type's metatable will affect all
+      instances of that type. This can be used to add support for
+      the <, <=, >, >= operators.
+
+      - An additional method 'elements' is defined for certain types.
+      It returns a bounds-checked, Lua-like array pointing to the
+      original cdata which can affect the values of the type 'elements'
+      was called on. The returned array does not use the '#' operator
+      for its length; instead a 'count' field. To prevent a bounds-check
+      or for 0-based indexing, access the array via its 'data' field.
+
+      - For simplicity, union fields that slice data within the
+      original C type (ie. Vec4.rgb -> Vec3) have been converted to
+      methods that copy the data (ie. Vec4.rgb() -> new Vec3). This
+      prevents the common table-reference issue and lessens the
+      book-keeping burden for the wrapped types.
 
 
-    LICENSE
-    -------
+   LICENSE
+   -------
 
-    This software is in the public domain. Where that dedication is not
-    recognized, you are granted a perpetual, irrevocable license to copy,
-    distribute, and modify this file as you see fit.
+   This software is in the public domain. Where that dedication is not
+   recognized, you are granted a perpetual, irrevocable license to copy,
+   distribute, and modify this file as you see fit.
 --]]
 
-local hmm = require 'hmm'
-local ffi = require 'ffi'
+
+-- Internal
+-----------
 
 -- This makes a C pointer work more-or-less like a 1-based Lua array.
 -- Note: Due to LuaJIT not calling __len for tables, the count
@@ -53,28 +92,37 @@ local function wrapArrayPointer(cdata, count)
 end
 
 
+-- Module
+---------
+
+local hmm = require 'hmm'
+local ffi = require 'ffi'
+
 local wrapper = {
    _version = '0.0.1',
    bindings = hmm,
 }
 
--- Standalone function wrappers
--------------------------------
+-- Constants & Wrappers
+-----------------------
 
--- HANDMADE_MATH_USE_RADIANS
-function wrapper.angleRad(a)  return a                 end
-function wrapper.angleDeg(a)  return a * hmm.DegToRad  end
-function wrapper.angleTurn(a) return a * hmm.TurnToRad end
+wrapper.pi       = hmm.PI
+wrapper.deg180   = hmm.DEG180
+wrapper.turnHalf = hmm.TURNHALF
 
--- HANDMADE_MATH_USE_DEGREES
--- function wrapper.angleRad(a)  return a * hmm.RadToDeg end
--- function wrapper.angleDeg(a)  return a end
--- function wrapper.angleTurn(a) return a * hmm.TurnToDeg end
+wrapper.angleRad  = hmm.AngleRad
+wrapper.angleDeg  = hmm.AngleDeg
+wrapper.angleTurn = hmm.AngleTurn
 
--- HANDMADE_MATH_USE_TURNS
--- function wrapper.angleRad(a)  return a * hmm.RadToTurn end
--- function wrapper.angleDeg(a)  return a * hmm.DegToTurn end
--- function wrapper.angleTurn(a) return a                 end
+wrapper.toRad  = hmm.ToRad
+wrapper.toDeg  = hmm.ToDeg
+wrapper.toTurn = hmm.ToTurn
+
+wrapper.min    = hmm.MIN
+wrapper.max    = hmm.MAX
+wrapper.abs    = hmm.ABS
+wrapper.mod    = hmm.MOD
+wrapper.square = hmm.SQUARE
 
 function wrapper.radToDeg(r)  return r * hmm.RadToDeg  end
 function wrapper.radToTurn(r) return r * hmm.RadToTurn end
@@ -82,12 +130,6 @@ function wrapper.degToRad(d)  return d * hmm.DegToRad  end
 function wrapper.degToTurn(d) return d * hmm.DegToTurn end
 function wrapper.turnToRad(t) return t * hmm.TurnToRad end
 function wrapper.turnToDeg(t) return t * hmm.TurnToDeg end
-
-function wrapper.min(a, b) return hmm.MIN(a, b) end
-function wrapper.max(a, b) return hmm.MAX(a, b) end
-function wrapper.abs(a)    return hmm.ABS(a)    end
-function wrapper.mod(a, m) return hmm.MOD(a, m) end
-function wrapper.square(x) return hmm.SQUARE(x) end
 
 function wrapper.sin(f)             return hmm.SinF(f)            end
 function wrapper.cos(f)             return hmm.CosF(f)            end
@@ -97,6 +139,7 @@ function wrapper.sqrt(f)            return hmm.SqrtF(f)           end
 function wrapper.invSqrt(f)         return hmm.InvSqrtF(f)        end
 function wrapper.lerp(a, t, b)      return hmm.Lerp(a, t, b)      end
 function wrapper.clamp(min, v, max) return hmm.Clamp(min, v, max) end
+
 
 
 -- Vec2 wrapper
@@ -168,6 +211,7 @@ end
 
 -- Note, this returns a pointer to the elements, so changes to
 -- the array will affect the original Vector.
+---@nodiscard
 ---@return number[] -- returns an array of the Vector's elements.
 function Vec2.elements(v)
    return wrapArrayPointer(ffi.cast('float*', v.__c), 2)
@@ -210,10 +254,14 @@ function Vec2.__eq(l, r)
 end
 
 function Vec2.__tostring(v)
-   return ('(%.2f, %.2f)'):format(v.__c.X, v.__c.Y)
+   return ('Vec2{ %.2f, %.2f }'):format(v.__c.X, v.__c.Y)
 end
 
 function Vec2.__index(v, k)
+   if v.__c[k] ~= nil then
+      return v.__c[k]
+   end
+
    local f = Vec2.__fields[k]
    if f ~= nil then
       return v.__c[f]
@@ -227,6 +275,11 @@ function Vec2.__index(v, k)
 end
 
 function Vec2.__newindex(v, k, val)
+   if v.__c[k] ~= nil then
+      v.__c[k] = val
+      return
+   end
+
    local f = Vec2.__fields[k]
    if f ~= nil then
       v.__c[f] = val
@@ -325,6 +378,7 @@ function Vec3.vw(v) return wrapV2(hmm.V2(v.__c.V, v.__c.W)) end
 
 -- Note, this returns a pointer to the elements, so changes to
 -- the array will affect the original Vector.
+---@nodiscard
 ---@return number[] -- returns an array of the Vector's elements.
 function Vec3.elements(v)
    return wrapArrayPointer(ffi.cast('float*', v.__c), 3)
@@ -367,10 +421,14 @@ function Vec3.__eq(l, r)
 end
 
 function Vec3.__tostring(v)
-   return ('(%.2f, %.2f, %.2f)'):format(v.__c.X, v.__c.Y, v.__c.Z)
+   return ('Vec3{ %.2f, %.2f, %.2f }'):format(v.__c.X, v.__c.Y, v.__c.Z)
 end
 
 function Vec3.__index(v, k)
+   if v.__c[k] ~= nil then
+      return v.__c[k]
+   end
+
    local f = Vec3.__fields[k]
    if f ~= nil then
       return v.__c[f]
@@ -384,6 +442,11 @@ function Vec3.__index(v, k)
 end
 
 function Vec3.__newindex(v, k, val)
+   if v.__c[k] ~= nil then
+      v.__c[k] = val
+      return
+   end
+
    local f = Vec3.__fields[k]
    if f ~= nil then
       v.__c[f] = val

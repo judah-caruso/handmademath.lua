@@ -1,11 +1,36 @@
 --[[
-    HandmadeMath.lua - HandmadeMath bindings for LuaJIT
-
     INFORMATION
     -----------
 
-    This library exposes HandmadeMath's API's to LuaJIT
-    via the FFI package.
+    This module exposes Handmade Math's C API to LuaJIT via the FFI package.
+    If you rather use a wrapper that feels more Lua-like, see: wrapper.lua
+
+    CAVEATS
+    -------
+
+    Because of bugs/limitations with LuaJIT, there are a few things to keep
+    in mind while using this module:
+
+        - HMM no longer functions like a header-only library and is instead
+        a dynamic one loaded at runtime. This may have some performance
+        implications depending on your application.
+
+        - To build a library LuaJIT can load, the 'static' and 'inline'
+        storage modifiers were removed from functions. However, LuaJIT will
+        try to inline things when it can. This may have some performance
+        implications depending on your application.
+
+        - Vectors, Matrices, and Quaternions do not have a 'float Elements[N]'
+        member anymore. This is due to LuaJIT generating invalid code on
+        certain platforms, causing these to break. A simple workaround is to
+        use 'ffi.cast' instead.
+
+        - Macros have been converted to Lua functions. This may have some
+        performance implications depending on your application.
+
+    While this module won't have the exact performance characteristics of its
+    C version, it will still be much faster than a pure Lua alternative.
+
 
     LICENSE
     -------
@@ -36,7 +61,7 @@ if lib_path == nil then
     error('Error: unable to find library for HandmadeMath! Does it exist?')
 end
 
-local lib = ffi.load(lib_path or 'HandmadeMath', false)
+local lib = ffi.load(lib_path, false)
 
 -- Types
 --------
@@ -346,8 +371,10 @@ ffi.cdef[[
    HMM_Quat HMM_QFromAxisAngle_LH(HMM_Vec3 Axis, float Angle);
    HMM_Quat HMM_QFromNormPair(HMM_Vec3 Left, HMM_Vec3 Right);
    HMM_Quat HMM_QFromVecPair(HMM_Vec3 Left, HMM_Vec3 Right);
-]]
 
+   int __definedAngleUnits(); // 0: HANDMADE_MATH_USE_RADIANS, 1: HANDMADE_MATH_USE_DEGREES, 2: HANDMADE_MATH_USE_TURNS
+   int __definedSIMD();
+]]
 
 -- Actual library
 -----------------
@@ -355,24 +382,54 @@ ffi.cdef[[
 local HMM = {
     _version = "2.0.0",
     library  = lib,
-
-    PI       = 3.14159265358979323846,
-    DEG180   = 180.0,
-    TURNHALF = 0.5,
 }
 
-function HMM.MIN(a, b) return (a > b)      and b       or a             end
-function HMM.MAX(a, b) return (a < b)      and b       or a             end
-function HMM.ABS(a)    return (a > 0)      and a       or -a            end
-function HMM.MOD(a, m) return (a % m >= 0) and (a % m) or ((a % m) + m) end
-function HMM.SQUARE(x) return x * x                                     end
-
+HMM.SIMD      = lib.__definedSIMD() == 1;
+HMM.PI        = 3.14159265358979323846
+HMM.DEG180    = 180.0
+HMM.TURNHALF  = 0.5
 HMM.RadToDeg  = HMM.DEG180   / HMM.PI
 HMM.RadToTurn = HMM.TURNHALF / HMM.PI
 HMM.DegToRad  = HMM.PI       / HMM.DEG180
 HMM.DegToTurn = HMM.TURNHALF / HMM.DEG180
 HMM.TurnToRad = HMM.PI       / HMM.TURNHALF
 HMM.TurnToDeg = HMM.DEG180   / HMM.TURNHALF
+
+local units = lib.__definedAngleUnits()
+if units == 0 then
+    HMM.UNITS = 'radians'
+
+    function HMM.AngleRad(a)  return a                 end
+    function HMM.AngleDeg(a)  return a * HMM.DegToRad  end
+    function HMM.AngleTurn(a) return a * HMM.TurnToRad end
+    function HMM.ToRad(a)     return a                 end
+    function HMM.ToDeg(a)     return a * HMM.RadToDeg  end
+    function HMM.ToTurn(a)    return a * HMM.RadToTurn end
+elseif units == 1 then
+    HMM.UNITS = 'degrees'
+
+    function HMM.AngleRad(a)  return a * HMM.RadToDeg  end
+    function HMM.AngleDeg(a)  return a                 end
+    function HMM.AngleTurn(a) return a * HMM.TurnToDeg end
+    function HMM.ToRad(a)     return a * HMM.DegToRad  end
+    function HMM.ToDeg(a)     return a                 end
+    function HMM.ToTurn(a)    return a * HMM.DegToTurn end
+elseif units == 2 then
+    HMM.UNITS = 'turns'
+
+    function HMM.AngleRad(a)  return a * HMM.RadToTurn end
+    function HMM.AngleDeg(a)  return a * HMM.DegToTurn end
+    function HMM.AngleTurn(a) return a                 end
+    function HMM.ToRad(a)     return a * HMM.TurnToRad end
+    function HMM.ToDeg(a)     return a * HMM.TurnToDeg end
+    function HMM.ToTurn(a)    return a                 end
+end
+
+function HMM.MIN(a, b) return (a > b) and b or a  end
+function HMM.MAX(a, b) return (a < b) and b or a  end
+function HMM.ABS(a)    return (a > 0) and a or -a end
+function HMM.SQUARE(x) return x * x end
+function HMM.MOD(a, m) return (a % m >= 0) and (a % m) or ((a % m) + m) end
 
 HMM.Bool = ffi.typeof('HMM_Bool')
 HMM.Vec2 = ffi.typeof('HMM_Vec2')
