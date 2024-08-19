@@ -4,10 +4,8 @@
     INFORMATION
     -----------
 
-    This library just exposes HandmadeMath's API's to LuaJIT
-    via the FFI package. A lua-like wrapper is available:
-
-        local hmm = require 'hmm.wrapper'
+    This library exposes HandmadeMath's API's to LuaJIT
+    via the FFI package.
 
     LICENSE
     -------
@@ -356,6 +354,7 @@ ffi.cdef[[
 
 local HMM = {
     _version = "2.0.0",
+    library  = lib,
 
     PI       = 3.14159265358979323846,
     DEG180   = 180.0,

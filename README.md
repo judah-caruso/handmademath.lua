@@ -1,11 +1,22 @@
-# HandmadeMath
+# Handmade Math
 
-LuaJIT bindings for [HandmadeMath](https://github.com/HandmadeMath/HandmadeMath).
+LuaJIT bindings for [Handmade Math](https://github.com/HandmadeMath/HandmadeMath).
 
 
 ## Installation:
 
-`git clone https://github.com/judah-caruso/handmademath hmm`
+```sh
+git clone https://github.com/judah-caruso/handmademath hmm
+```
+
+## Building & Customization:
+
+The `lib` directory contains the Handmade Math library and a few build scripts to
+generate a dynamic library for LuaJIT to load.
+
+Simply run the `build_[os]` script for your platform.
+
+To customize the library, modify `HandmadeMath.c` and recompile.
 
 
 ## Usage:
