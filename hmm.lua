@@ -20,6 +20,8 @@
         try to inline things when it can. This may have some performance
         implications depending on your application.
 
+        - The loaded library can be accessed via hmm.library.
+
         - Vectors, Matrices, and Quaternions do not have a 'float Elements[N]'
         member anymore. This is due to LuaJIT generating invalid code on
         certain platforms, causing these to break. A simple workaround is to

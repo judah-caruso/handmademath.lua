@@ -13,6 +13,8 @@
    Some decisions were made during the creation of this library
    that are useful to keep in mind:
 
+      - The original bindings can be accessed via wrapper.bindings.
+
       - Constants were converted to lowercase, and functions to
       camelCase.
 
