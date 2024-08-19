@@ -1,6 +1,6 @@
 # HandmadeMath
 
-LuaJIT bindings for HandmadeMath.
+LuaJIT bindings for [HandmadeMath](https://github.com/HandmadeMath/HandmadeMath).
 
 
 ## Installation:
