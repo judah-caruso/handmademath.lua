@@ -5,7 +5,7 @@ Lua bindings for HandmadeMath.
 ## Usage:
 
 ```sh
-https://github.com/judah-caruso/handmademath.lua hmm
+git clone https://github.com/judah-caruso/handmademath.lua hmm
 ```
 
 ```lua
