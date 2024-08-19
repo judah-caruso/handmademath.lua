@@ -1,6 +1,11 @@
 /* These are needed to make sure we can export things properly */
 
-#define COVERAGE(a, b) __declspec(dllexport)
+#if defined(_WIN32)
+   #define COVERAGE(a, b) __declspec(dllexport)
+#elif defined(__APPLE__)
+   #define COVERAGE(a, b) __attribute__((visibility("default")))
+#endif
+
 #define static
 #define inline
 

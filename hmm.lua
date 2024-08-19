@@ -17,22 +17,22 @@
     distribute, and modify this file as you see fit.
 --]]
 
-if jit == nil then
-    error('this library can only be used with luajit!')
-end
+assert(pcall(require, 'ffi') and pcall(require, 'jit'), 'Error: HandmadeMath requires LuaJIT.')
 
 local ffi = require 'ffi'
-local lib = nil
 
+local lib_path = nil
 if ffi.os == 'Windows' then
-    lib = ffi.load(package.searchpath('HandmadeMath', package.path:gsub('lua', 'dll')) or 'HandmadeMath', false)
+    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'dll'))
 elseif ffi.os == 'OSX' then
-    lib = ffi.load(package.searchpath('HandmadeMath', package.path:gsub('lua', 'dylib')) or 'HandmadeMath', false)
+    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'dylib'))
 elseif ffi.os == 'Linux' then
-    lib = ffi.load(package.searchpath('HandmadeMath', package.path:gsub('lua', 'so')) or 'HandmadeMath', false)
+    lib_path = package.searchpath('HandmadeMath', package.path:gsub('lua', 'so'))
 else
     error(('unsupported operating system: %s'):format(ffi.os))
 end
+
+local lib = ffi.load(lib_path or 'HandmadeMath', false)
 
 -- Types
 --------
@@ -61,8 +61,6 @@ ffi.cdef[[
        {
            float Width, Height;
        };
-
-       float Elements[2];
    } HMM_Vec2;
 
    typedef union HMM_Vec3
@@ -105,8 +103,6 @@ ffi.cdef[[
            float _Ignored3;
            HMM_Vec2 VW;
        };
-
-       float Elements[3];
    } HMM_Vec3;
 
    typedef union HMM_Vec4
@@ -158,25 +154,20 @@ ffi.cdef[[
            float _Ignored5;
            HMM_Vec2 ZW;
        };
-
-       float Elements[4];
    } HMM_Vec4;
 
-   typedef union HMM_Mat2
+   typedef struct HMM_Mat2
    {
-       float Elements[2][2];
        HMM_Vec2 Columns[2];
    } HMM_Mat2;
 
-   typedef union HMM_Mat3
+   typedef struct HMM_Mat3
    {
-       float Elements[3][3];
        HMM_Vec3 Columns[3];
    } HMM_Mat3;
 
-   typedef union HMM_Mat4
+   typedef struct HMM_Mat4
    {
-       float Elements[4][4];
        HMM_Vec4 Columns[4];
    } HMM_Mat4;
 
@@ -195,8 +186,6 @@ ffi.cdef[[
 
            float W;
        };
-
-       float Elements[4];
    } HMM_Quat;
 ]]
 

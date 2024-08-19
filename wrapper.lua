@@ -14,8 +14,48 @@
 --]]
 
 local hmm = require 'hmm'
+local ffi = require 'ffi'
+
+-- This makes a C pointer work more-or-less like a 1-based Lua array.
+-- Note: Due to LuaJIT not calling __len for tables, the count
+-- field should be used instead.
+---@return number[]
+local function wrapArrayPointer(cdata, count)
+   return setmetatable({ data = cdata, count = count }, {
+      __index = function(t, k)
+         if type(k) == 'number' then
+            local i = k - 1
+            if i < 0 or i >= count then
+               error(('array bounds check failed! index %d (min: 1, max: %d)'):format(k, count), 2)
+            end
+
+            return t.data[i]
+         else
+            error(("cannot index array with value '%s'"):format(k), 2)
+         end
+      end,
+      __newindex = function(t, k, v)
+         if type(k) == 'number' then
+            local i = k - 1
+            if i < 0 or i >= count then
+               error(('array bounds check failed! index %d (min 1, max: %d)'):format(k, count), 2)
+            end
+
+            t.data[i] = v
+         else
+            error(("cannot index array with value '%s'"):format(k), 2)
+         end
+      end,
+      __len = function()
+         return count
+      end,
+   })
+end
 
 local wrapper = {}
+
+-- Standalone function wrappers
+-------------------------------
 
 function wrapper.RadToDeg(a)  return a * hmm.RadToDeg  end
 function wrapper.RadToTurn(a) return a * hmm.RadToTurn end
@@ -44,7 +84,6 @@ function wrapper.lerp(a, t, b)      return hmm.Lerp(a, t, b)      end
 function wrapper.clamp(min, v, max) return hmm.Clamp(min, v, max) end
 
 
-
 -- V2 wrapper
 ---------------
 
@@ -58,7 +97,6 @@ function wrapper.clamp(min, v, max) return hmm.Clamp(min, v, max) end
 ---@field r number
 ---@field g number
 ---@field b number
----@field elements number[]
 local V2 = {}
 V2.__fields = {
    ['x'] = 'X',
@@ -72,8 +110,6 @@ V2.__fields = {
 
    ['width']  = 'Width',
    ['height'] = 'Height',
-
-   ['elements'] = 'Elements',
 }
 
 wrapper.V2 = V2
@@ -114,6 +150,10 @@ end
 
 function V2.rotate(v, angle)
    return wrapV2(hmm.RotateV2(v.__c, angle))
+end
+
+function V2.elements(v)
+   return wrapArrayPointer(ffi.cast('float*', v.__c), 2)
 end
 
 function V2.__add(l, r)
@@ -193,7 +233,6 @@ end
 ---@field r number
 ---@field g number
 ---@field b number
----@field elements number[]
 local V3 = {}
 V3.__fields = {
    ['x'] = 'X',
@@ -207,8 +246,6 @@ V3.__fields = {
    ['r'] = 'R',
    ['g'] = 'G',
    ['b'] = 'B',
-
-   ['elements'] = 'Elements',
 }
 
 wrapper.V3 = V3
@@ -268,6 +305,13 @@ function V3.xy(v) return wrapV2(hmm.V2(v.__c.X, v.__c.Y)) end
 function V3.yz(v) return wrapV2(hmm.V2(v.__c.Y, v.__c.Z)) end
 function V3.uv(v) return wrapV2(hmm.V2(v.__c.U, v.__c.V)) end
 function V3.vw(v) return wrapV2(hmm.V2(v.__c.V, v.__c.W)) end
+
+---@return number[] -- returns an array of the Vector's elements.
+-- Note, this returns a pointer to the elements, so changes to
+-- the array will affect the original Vector.
+function V3.elements(v)
+   return wrapArrayPointer(ffi.cast('float*', v.__c), 3)
+end
 
 function V3.__add(l, r)
    if type(r) == 'number' then
