@@ -5,6 +5,7 @@
     This module exposes Handmade Math's C API to LuaJIT via the FFI package.
     If you rather use a wrapper that feels more Lua-like, see: wrapper.lua
 
+
     CAVEATS
     -------
 
