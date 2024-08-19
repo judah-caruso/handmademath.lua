@@ -21,7 +21,7 @@ local hmm = require 'path.to.wrapper' -- See: wrapper.lua for caveats
 ## Installation:
 
 ```sh
-git clone https://github.com/judah-caruso/handmademath hmm
+git clone https://github.com/judah-caruso/lua-handmademath hmm
 ```
 
 ## Building & Customization:
