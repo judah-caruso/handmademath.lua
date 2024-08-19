@@ -1,4 +1,4 @@
-# Handmade Math
+# Lua Handmade Math
 
 LuaJIT bindings for [Handmade Math](https://github.com/HandmadeMath/HandmadeMath).
 
