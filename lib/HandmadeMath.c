@@ -17,6 +17,11 @@
 
 
 // Allows hmm.lua to have knowledge about the compiled library.
+// To remove this functionality:
+//    - Delete these two functions
+//    - Recompile Handmade Math
+//    - Edit 'hmm.lua' (search for 'Compilation info')
+
 COVERAGE(0, 0) int __definedAngleUnits() {
 #if defined(HANDMADE_MATH_USE_RADIANS)
    return 0;

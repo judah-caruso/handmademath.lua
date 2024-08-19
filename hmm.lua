@@ -28,6 +28,19 @@
         - Macros have been converted to Lua functions. This may have some
         performance implications depending on your application.
 
+        - Because a few utility functions were defined via #ifdefs and not
+        exported, two internal functions were created as a workaround:
+            1) __definedAngleUnits - returns a integer based on the
+                angle units defined in lib/HandmadeMath.c and determines
+                the bodies of the unit conversion functions (only done
+                once at initialization).
+            2) __definedSIMD - returns if Handmade Math was able to load
+                xmmintrin.h or arm_neon.h headers on the current platform
+                (only done once at initialization).
+
+            If either of these functions are a security risk or not needed,
+            they can easily be removed from HandmadeMath.c and hmm.lua.
+
     While this module won't have the exact performance characteristics of its
     C version, it will still be much faster than a pure Lua alternative.
 
@@ -62,6 +75,7 @@ if lib_path == nil then
 end
 
 local lib = ffi.load(lib_path, false)
+
 
 -- Types
 --------
@@ -371,31 +385,29 @@ ffi.cdef[[
    HMM_Quat HMM_QFromAxisAngle_LH(HMM_Vec3 Axis, float Angle);
    HMM_Quat HMM_QFromNormPair(HMM_Vec3 Left, HMM_Vec3 Right);
    HMM_Quat HMM_QFromVecPair(HMM_Vec3 Left, HMM_Vec3 Right);
-
-   int __definedAngleUnits(); // 0: HANDMADE_MATH_USE_RADIANS, 1: HANDMADE_MATH_USE_DEGREES, 2: HANDMADE_MATH_USE_TURNS
-   int __definedSIMD();
 ]]
 
--- Actual library
------------------
+
+-- Compilation info
+-------------------
+
+ffi.cdef('int __definedAngleUnits()') -- 0: HANDMADE_MATH_USE_RADIANS, 1: HANDMADE_MATH_USE_DEGREES, 2: HANDMADE_MATH_USE_TURNS
+ffi.cdef('int __definedSIMD()')       -- 0: HANDMADE_MATH_NO_SIMD or not available, 1: HANDMADE_MATH__USE_SSE
+
+local units        = lib.__definedAngleUnits()
+local simd_enabled = lib.__definedSIMD()
+
+
+-- Module
+---------
 
 local HMM = {
     _version = "2.0.0",
     library  = lib,
 }
 
-HMM.SIMD      = lib.__definedSIMD() == 1;
-HMM.PI        = 3.14159265358979323846
-HMM.DEG180    = 180.0
-HMM.TURNHALF  = 0.5
-HMM.RadToDeg  = HMM.DEG180   / HMM.PI
-HMM.RadToTurn = HMM.TURNHALF / HMM.PI
-HMM.DegToRad  = HMM.PI       / HMM.DEG180
-HMM.DegToTurn = HMM.TURNHALF / HMM.DEG180
-HMM.TurnToRad = HMM.PI       / HMM.TURNHALF
-HMM.TurnToDeg = HMM.DEG180   / HMM.TURNHALF
+HMM.SIMD = simd_enabled
 
-local units = lib.__definedAngleUnits()
 if units == 0 then
     HMM.UNITS = 'radians'
 
@@ -439,6 +451,16 @@ HMM.Mat2 = ffi.typeof('HMM_Mat2')
 HMM.Mat3 = ffi.typeof('HMM_Mat3')
 HMM.Mat4 = ffi.typeof('HMM_Mat4')
 HMM.Quat = ffi.typeof('HMM_Quat')
+
+HMM.PI        = 3.14159265358979323846
+HMM.DEG180    = 180.0
+HMM.TURNHALF  = 0.5
+HMM.RadToDeg  = HMM.DEG180   / HMM.PI
+HMM.RadToTurn = HMM.TURNHALF / HMM.PI
+HMM.DegToRad  = HMM.PI       / HMM.DEG180
+HMM.DegToTurn = HMM.TURNHALF / HMM.DEG180
+HMM.TurnToRad = HMM.PI       / HMM.TURNHALF
+HMM.TurnToDeg = HMM.DEG180   / HMM.TURNHALF
 
 HMM.V2                   = lib.HMM_V2
 HMM.V3                   = lib.HMM_V3
