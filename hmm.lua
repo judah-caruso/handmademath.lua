@@ -73,9 +73,16 @@ else
     error(("Error: unsupported operating system '%s'"):format(ffi.os))
 end
 
-local modpath = debug.getinfo(1, 'S').source:match('@?(.*' .. pathsep .. ')') .. 'lib'
+local srcpath = debug.getinfo(1).source
+local modpath = (srcpath:match('@?(.*' .. pathsep .. ')') or '.') .. 'lib'
 local libpath = modpath .. pathsep  .. 'HandmadeMath' .. libext
-local lib     = assert(ffi.load(libpath, false))
+
+local ok, lib = pcall(ffi.load, libpath, false)
+if not ok then
+    modpath = (srcpath:match('@?(.*/)') or '.') .. 'lib'
+    libpath = modpath .. pathsep .. 'HandmadeMath' .. libext
+    lib     = assert(ffi.load(libpath, false), 'Error: Unable to find the HandmadeMath library.')
+end
 
 
 -- Types
